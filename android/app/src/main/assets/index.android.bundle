@@ -96090,15 +96090,11 @@ __d(function (global, _$$_REQUIRE, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, e
   var comma = ",".charCodeAt(0);
   var colon = ":".charCodeAt(0);
   var star = "*".charCodeAt(0);
-  var uLower = "u".charCodeAt(0);
-  var uUpper = "U".charCodeAt(0);
-  var plus = "+".charCodeAt(0);
-  var isUnicodeRange = /^[a-f0-9?-]+$/i;
 
   module.exports = function (input) {
     var tokens = [];
     var value = input;
-    var next, quote, prev, token, escape, escapePos, whitespacePos, parenthesesOpenPos;
+    var next, quote, prev, token, escape, escapePos, whitespacePos;
     var pos = 0;
     var code = value.charCodeAt(pos);
     var max = value.length;
@@ -96127,7 +96123,7 @@ __d(function (global, _$$_REQUIRE, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, e
           after = token;
         } else if (prev && prev.type === "div") {
           prev.after = token;
-        } else if (code === comma || code === colon || code === slash && value.charCodeAt(next + 1) !== star && (!parent || parent && parent.type === "function" && parent.value !== "calc")) {
+        } else if (code === comma || code === colon || code === slash && value.charCodeAt(next + 1) !== star) {
           before = token;
         } else {
           tokens.push({
@@ -96185,15 +96181,6 @@ __d(function (global, _$$_REQUIRE, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, e
         tokens.push(token);
         pos = next + 2;
         code = value.charCodeAt(pos);
-      } else if ((code === slash || code === star) && parent && parent.type === "function" && parent.value === "calc") {
-        token = value[pos];
-        tokens.push({
-          type: "word",
-          sourceIndex: pos - before.length,
-          value: token
-        });
-        pos += 1;
-        code = value.charCodeAt(pos);
       } else if (code === slash || code === comma || code === colon) {
         token = value[pos];
         tokens.push({
@@ -96214,12 +96201,11 @@ __d(function (global, _$$_REQUIRE, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, e
           code = value.charCodeAt(next);
         } while (code <= 32);
 
-        parenthesesOpenPos = pos;
         token = {
           type: "function",
           sourceIndex: pos - name.length,
           value: name,
-          before: value.slice(parenthesesOpenPos + 1, next)
+          before: value.slice(pos + 1, next)
         };
         pos = next;
 
@@ -96251,30 +96237,25 @@ __d(function (global, _$$_REQUIRE, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, e
             code = value.charCodeAt(whitespacePos);
           } while (code <= 32);
 
-          if (parenthesesOpenPos < whitespacePos) {
-            if (pos !== whitespacePos + 1) {
-              token.nodes = [{
-                type: "word",
-                sourceIndex: pos,
-                value: value.slice(pos, whitespacePos + 1)
-              }];
-            } else {
-              token.nodes = [];
-            }
-
-            if (token.unclosed && whitespacePos + 1 !== next) {
-              token.after = "";
-              token.nodes.push({
-                type: "space",
-                sourceIndex: whitespacePos + 1,
-                value: value.slice(whitespacePos + 1, next)
-              });
-            } else {
-              token.after = value.slice(whitespacePos + 1, next);
-            }
+          if (pos !== whitespacePos + 1) {
+            token.nodes = [{
+              type: "word",
+              sourceIndex: pos,
+              value: value.slice(pos, whitespacePos + 1)
+            }];
           } else {
-            token.after = "";
             token.nodes = [];
+          }
+
+          if (token.unclosed && whitespacePos + 1 !== next) {
+            token.after = "";
+            token.nodes.push({
+              type: "space",
+              sourceIndex: whitespacePos + 1,
+              value: value.slice(whitespacePos + 1, next)
+            });
+          } else {
+            token.after = value.slice(whitespacePos + 1, next);
           }
 
           pos = next + 1;
@@ -96309,18 +96290,12 @@ __d(function (global, _$$_REQUIRE, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, e
 
           next += 1;
           code = value.charCodeAt(next);
-        } while (next < max && !(code <= 32 || code === singleQuote || code === doubleQuote || code === comma || code === colon || code === slash || code === openParentheses || code === star && parent && parent.type === "function" && parent.value === "calc" || code === slash && parent.type === "function" && parent.value === "calc" || code === closeParentheses && balanced));
+        } while (next < max && !(code <= 32 || code === singleQuote || code === doubleQuote || code === comma || code === colon || code === slash || code === openParentheses || code === closeParentheses && balanced));
 
         token = value.slice(pos, next);
 
         if (openParentheses === code) {
           name = token;
-        } else if ((uLower === token.charCodeAt(0) || uUpper === token.charCodeAt(0)) && plus === token.charCodeAt(1) && isUnicodeRange.test(token.slice(2))) {
-          tokens.push({
-            type: "unicode-range",
-            sourceIndex: pos,
-            value: token
-          });
         } else {
           tokens.push({
             type: "word",
@@ -96380,7 +96355,7 @@ __d(function (global, _$$_REQUIRE, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, e
     } else if (type === "div") {
       return (node.before || "") + value + (node.after || "");
     } else if (Array.isArray(node.nodes)) {
-      buf = stringify(node.nodes, custom);
+      buf = stringify(node.nodes);
 
       if (type !== "function") {
         return buf;
@@ -96417,109 +96392,47 @@ __d(function (global, _$$_REQUIRE, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, e
   var exp = "e".charCodeAt(0);
   var EXP = "E".charCodeAt(0);
 
-  function likeNumber(value) {
-    var code = value.charCodeAt(0);
-    var nextCode;
-
-    if (code === plus || code === minus) {
-      nextCode = value.charCodeAt(1);
-
-      if (nextCode >= 48 && nextCode <= 57) {
-        return true;
-      }
-
-      var nextNextCode = value.charCodeAt(2);
-
-      if (nextCode === dot && nextNextCode >= 48 && nextNextCode <= 57) {
-        return true;
-      }
-
-      return false;
-    }
-
-    if (code === dot) {
-      nextCode = value.charCodeAt(1);
-
-      if (nextCode >= 48 && nextCode <= 57) {
-        return true;
-      }
-
-      return false;
-    }
-
-    if (code >= 48 && code <= 57) {
-      return true;
-    }
-
-    return false;
-  }
-
   module.exports = function (value) {
     var pos = 0;
     var length = value.length;
+    var dotted = false;
+    var sciPos = -1;
+    var containsNumber = false;
     var code;
-    var nextCode;
-    var nextNextCode;
-
-    if (length === 0 || !likeNumber(value)) {
-      return false;
-    }
-
-    code = value.charCodeAt(pos);
-
-    if (code === plus || code === minus) {
-      pos++;
-    }
 
     while (pos < length) {
       code = value.charCodeAt(pos);
 
-      if (code < 48 || code > 57) {
+      if (code >= 48 && code <= 57) {
+        containsNumber = true;
+      } else if (code === exp || code === EXP) {
+        if (sciPos > -1) {
+          break;
+        }
+
+        sciPos = pos;
+      } else if (code === dot) {
+        if (dotted) {
+          break;
+        }
+
+        dotted = true;
+      } else if (code === plus || code === minus) {
+        if (pos !== 0) {
+          break;
+        }
+      } else {
         break;
       }
 
       pos += 1;
     }
 
-    code = value.charCodeAt(pos);
-    nextCode = value.charCodeAt(pos + 1);
-
-    if (code === dot && nextCode >= 48 && nextCode <= 57) {
-      pos += 2;
-
-      while (pos < length) {
-        code = value.charCodeAt(pos);
-
-        if (code < 48 || code > 57) {
-          break;
-        }
-
-        pos += 1;
-      }
-    }
-
-    code = value.charCodeAt(pos);
-    nextCode = value.charCodeAt(pos + 1);
-    nextNextCode = value.charCodeAt(pos + 2);
-
-    if ((code === exp || code === EXP) && (nextCode >= 48 && nextCode <= 57 || (nextCode === plus || nextCode === minus) && nextNextCode >= 48 && nextNextCode <= 57)) {
-      pos += nextCode === plus || nextCode === minus ? 3 : 2;
-
-      while (pos < length) {
-        code = value.charCodeAt(pos);
-
-        if (code < 48 || code > 57) {
-          break;
-        }
-
-        pos += 1;
-      }
-    }
-
-    return {
+    if (sciPos + 1 === pos) pos--;
+    return containsNumber ? {
       number: value.slice(0, pos),
       unit: value.slice(pos)
-    };
+    } : false;
   };
 },433,[],"node_modules/postcss-value-parser/lib/unit.js");
 __d(function (global, _$$_REQUIRE, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, exports, _dependencyMap) {
@@ -97403,6 +97316,7 @@ __d(function (global, _$$_REQUIRE, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, e
       placement: props.placement,
       targetType: props.targetType,
       interceptScroll: true,
+      scrollEnabled: false,
       style: {
         height: height,
         width: '100%'
@@ -98918,6 +98832,7 @@ __d(function (global, _$$_REQUIRE, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, e
       placement: props.placement,
       targetType: props.targetType,
       interceptScroll: true,
+      scrollEnabled: false,
       darkMode: true,
       style: {
         height: height,

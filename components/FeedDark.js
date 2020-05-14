@@ -19,6 +19,7 @@ const FeedDark = props => {
 			placement={props.placement}
 			targetType={props.targetType}
 			interceptScroll={true}
+			scrollEnabled={false} //ios
 			darkMode={true}
 			style={{ height, width: '100%' }}
 			onDidLoad={event => {
