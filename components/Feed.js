@@ -19,6 +19,7 @@ const Feed = props => {
 			placement={props.placement}
 			targetType={props.targetType}
 			interceptScroll={true}
+			scrollEnabled={false} //ios
 			style={{ height, width: '100%' }}
 			onDidLoad={event => {
 				setHeight((parseInt(event.nativeEvent.height, 10)) )
